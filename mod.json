@@ -1,0 +1,17 @@
+{
+    "id": "DapperOpeningAct",
+    "name": "DapperOpeningAct",
+    "display_name": "Dapper's Opening Act",
+    "author": [
+        "Dervorce",
+        "DapperGentlemann"
+    ],
+    "description": "Adds the Opening Act Suggestion by user DapperGentlemann",
+    "prefix": "Dapper",
+    "main_file": "main.lua",
+    "priority": 0,
+    "badge_colour": "",
+    "badge_text_colour": "",
+    "version": "1.0.0",
+    "dependencies": []
+}

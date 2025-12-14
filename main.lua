@@ -185,7 +185,6 @@ local openingact = SMODS.Joker {
                         if #pair_keys >= 2 then
                             local first_rank = pseudorandom_element(pair_keys, 'openingact')
 
-                            -- remove first rank so second is guaranteed different
                             local remaining = {}
                             for _, r in ipairs(pair_keys) do
                                 if r ~= first_rank then
@@ -233,10 +232,8 @@ local openingact = SMODS.Joker {
                         local flush_suits = filter_min_count(suit_count, 5)
 
                         if next(flush_suits) then
-                            -- pick a suit that could possibly have a straight
                             local suit = pseudorandom_element(keys(flush_suits), 'openingact')
 
-                            -- collect ranks for ONLY this suit
                             local suited_ranks = {}
                             for _, card in ipairs(G.playing_cards) do
                                 if card.base.suit == suit then
@@ -244,7 +241,6 @@ local openingact = SMODS.Joker {
                                 end
                             end
 
-                            -- dedupe ranks
                             local unique = {}
                             for _, r in ipairs(suited_ranks) do unique[r] = true end
                             local unique_ranks = keys(unique)
@@ -269,7 +265,6 @@ local openingact = SMODS.Joker {
                         local pairs = filter_min_count(rank_count, 2)
 
                         if next(trips) then
-                            -- pick the 3-of-a-kind rank
                             local triprank = pseudorandom_element(keys(trips), 'openingact')
 
                             pairs[triprank] = nil
@@ -280,7 +275,6 @@ local openingact = SMODS.Joker {
                                 local trip_cards = pick_random_cards_by_rank(G.playing_cards, triprank, 3)
                                 local pair_cards = pick_random_cards_by_rank(G.playing_cards, pairrank, 2)
 
-                                -- safety check (should never fail if counts were correct)
                                 if #trip_cards == 3 and #pair_cards == 2 then
                                     for _, c in ipairs(trip_cards) do cards[#cards + 1] = c end
                                     for _, c in ipairs(pair_cards) do cards[#cards + 1] = c end
@@ -296,7 +290,6 @@ local openingact = SMODS.Joker {
                         if next(flush_suits) then
                             local suit = pseudorandom_element(keys(flush_suits), 'openingact')
 
-                            -- count ranks within this suit
                             local suited_ranks = {}
                             for _, card in ipairs(G.playing_cards) do
                                 if card.base.suit == suit then
@@ -338,7 +331,6 @@ local openingact = SMODS.Joker {
                         if next(flush_suits) then
                             local suit = pseudorandom_element(keys(flush_suits), 'openingact')
 
-                            -- count ranks inside this suit
                             local suited_ranks = {}
                             for _, card in ipairs(G.playing_cards) do
                                 if card.base.suit == suit then

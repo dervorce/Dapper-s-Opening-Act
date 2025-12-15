@@ -177,6 +177,7 @@ local openingact = SMODS.Joker {
                     for _, playing_card in ipairs(G.hand.cards) do
                         _cards[#_cards + 1] = playing_card
                     end
+
                     ---@type number
                     local cardAmount = GetCardAmount(G.GAME.hands[hand].example)
 

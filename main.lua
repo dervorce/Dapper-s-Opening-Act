@@ -159,7 +159,7 @@ local openingact = SMODS.Joker {
                     ---@type table
                     local suits = {}
 
-                    for _, playing_card in ipairs(G.playing_cards) do
+                    for _, playing_card in ipairs(G.deck.cards) do
                         if not SMODS.has_no_suit(playing_card) then
                             suits[#suits + 1] = playing_card.base.suit
                         end
@@ -193,23 +193,23 @@ local openingact = SMODS.Joker {
 
                     if any_selected then G.FUNCS.discard_cards_from_highlighted(nil, true) end
                     if hand == "High Card" then
-                        cards = { pseudorandom_element(G.playing_cards, 'openingact') }
+                        cards = { pseudorandom_element(G.deck.cards, 'openingact') }
                     elseif hand == "Pair" then
                         local pairs = filter_min_count(rank_count, 2)
                         local pairrank = pseudorandom_element(keys(pairs), 'openingact')
-                        cards = pick_random_cards_by_rank(G.playing_cards, pairrank, 2)
+                        cards = pick_random_cards_by_rank(G.deck.cards, pairrank, 2)
                     elseif hand == "Three of a Kind" then
                         local trips = filter_min_count(rank_count, 3)
                         local triprank = pseudorandom_element(keys(trips), 'openingact')
-                        cards = pick_random_cards_by_rank(G.playing_cards, triprank, 3)
+                        cards = pick_random_cards_by_rank(G.deck.cards, triprank, 3)
                     elseif hand == "Four of a Kind" then
                         local quads = filter_min_count(rank_count, 4)
                         local quadrank = pseudorandom_element(keys(quads), 'openingact')
-                        cards = pick_random_cards_by_rank(G.playing_cards, quadrank, 4)
+                        cards = pick_random_cards_by_rank(G.deck.cards, quadrank, 4)
                     elseif hand == "Five of a Kind" then
                         local quints = filter_min_count(rank_count, 5)
                         local fiverank = pseudorandom_element(keys(quints), 'openingact')
-                        cards = pick_random_cards_by_rank(G.playing_cards, fiverank, 5)
+                        cards = pick_random_cards_by_rank(G.deck.cards, fiverank, 5)
                     elseif hand == "Two Pair" then
                         local pairs = filter_min_count(rank_count, 2)
                         local pair_keys = keys(pairs)
@@ -226,8 +226,8 @@ local openingact = SMODS.Joker {
 
                             local second_rank = pseudorandom_element(remaining, 'openingact2')
 
-                            local first_pair  = pick_random_cards_by_rank(G.playing_cards, first_rank, 2)
-                            local second_pair = pick_random_cards_by_rank(G.playing_cards, second_rank, 2)
+                            local first_pair  = pick_random_cards_by_rank(G.deck.cards, first_rank, 2)
+                            local second_pair = pick_random_cards_by_rank(G.deck.cards, second_rank, 2)
 
                             for _, c in ipairs(first_pair) do cards[#cards + 1] = c end
                             for _, c in ipairs(second_pair) do cards[#cards + 1] = c end
@@ -243,7 +243,7 @@ local openingact = SMODS.Joker {
                             local straight_ranks = pseudorandom_element(straights, 'openingact')
 
                             for _, rank in ipairs(straight_ranks) do
-                                local picked = pick_random_cards_by_rank(G.playing_cards, rank, 1)
+                                local picked = pick_random_cards_by_rank(G.deck.cards, rank, 1)
                                 if #picked == 0 then
                                     cards = {}
                                     break
@@ -256,7 +256,7 @@ local openingact = SMODS.Joker {
 
                         if next(flush_suits) then
                             local suit = pseudorandom_element(keys(flush_suits), 'openingact')
-                            cards = pick_random_cards_by_suit(G.playing_cards, suit, 5)
+                            cards = pick_random_cards_by_suit(G.deck.cards, suit, 5)
                         end
                     elseif hand == "Straight Flush" then
                         local flush_suits = filter_min_count(suit_count, 5)
@@ -265,7 +265,7 @@ local openingact = SMODS.Joker {
                             local suit = pseudorandom_element(keys(flush_suits), 'openingact')
 
                             local suited_ranks = {}
-                            for _, card in ipairs(G.playing_cards) do
+                            for _, card in ipairs(G.deck.cards) do
                                 if card.base.suit == suit then
                                     suited_ranks[#suited_ranks + 1] = card.base.rank
                                 end
@@ -281,7 +281,7 @@ local openingact = SMODS.Joker {
                                 local straight = pseudorandom_element(straights, 'openingact')
 
                                 for _, rank in ipairs(straight) do
-                                    local picked = pick_random_cards_by_rank(G.playing_cards, rank, 1)
+                                    local picked = pick_random_cards_by_rank(G.deck.cards, rank, 1)
                                     if #picked == 0 then
                                         cards = {}
                                         break
@@ -302,8 +302,8 @@ local openingact = SMODS.Joker {
                             if next(pairs) then
                                 local pairrank = pseudorandom_element(keys(pairs), 'openingact')
 
-                                local trip_cards = pick_random_cards_by_rank(G.playing_cards, triprank, 3)
-                                local pair_cards = pick_random_cards_by_rank(G.playing_cards, pairrank, 2)
+                                local trip_cards = pick_random_cards_by_rank(G.deck.cards, triprank, 3)
+                                local pair_cards = pick_random_cards_by_rank(G.deck.cards, pairrank, 2)
 
                                 if #trip_cards == 3 and #pair_cards == 2 then
                                     for _, c in ipairs(trip_cards) do cards[#cards + 1] = c end
@@ -320,7 +320,7 @@ local openingact = SMODS.Joker {
                             local suit = pseudorandom_element(keys(flush_suits), 'openingact')
 
                             local suited_ranks = {}
-                            for _, card in ipairs(G.playing_cards) do
+                            for _, card in ipairs(G.deck.cards) do
                                 if card.base.suit == suit then
                                     suited_ranks[#suited_ranks + 1] = card.base.rank
                                 end
@@ -338,10 +338,10 @@ local openingact = SMODS.Joker {
                                     local pairrank = pseudorandom_element(keys(pairs), 'openingact')
 
                                     local trip_cards = pick_random_cards_by_rank_and_suit(
-                                        G.playing_cards, triprank, suit, 3
+                                        G.deck.cards, triprank, suit, 3
                                     )
                                     local pair_cards = pick_random_cards_by_rank_and_suit(
-                                        G.playing_cards, pairrank, suit, 2
+                                        G.deck.cards, pairrank, suit, 2
                                     )
 
                                     if #trip_cards == 3 and #pair_cards == 2 then
@@ -360,7 +360,7 @@ local openingact = SMODS.Joker {
                             local suit = pseudorandom_element(keys(flush_suits), 'openingact')
 
                             local suited_ranks = {}
-                            for _, card in ipairs(G.playing_cards) do
+                            for _, card in ipairs(G.deck.cards) do
                                 if card.base.suit == suit then
                                     suited_ranks[#suited_ranks + 1] = card.base.rank
                                 end
@@ -373,7 +373,7 @@ local openingact = SMODS.Joker {
                                 local rank = pseudorandom_element(keys(fives), 'openingact')
 
                                 cards = pick_random_cards_by_rank_and_suit(
-                                    G.playing_cards, rank, suit, 5
+                                    G.deck.cards, rank, suit, 5
                                 )
                             end
                         end

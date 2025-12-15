@@ -13,7 +13,17 @@ local function count_suits(suit_table)
     end
     return counts
 end
+local function GetCardAmount(tbl)
+    local count = 0
 
+    for _, entry in ipairs(tbl) do
+        if entry[2] == true then
+            count = count + 1
+        end
+    end
+
+    return count
+end
 local function filter_min_count(tbl, n)
     local out = {}
     for k, v in pairs(tbl) do
@@ -136,7 +146,8 @@ local openingact = SMODS.Joker {
         return { vars = { localize(G.GAME.current_round.most_played_poker_hand, 'poker_hands') } }
     end,
     calculate = function(self, card, context)
-        if context.setting_blind then
+        if context.first_hand_drawn then
+            local domessage = false
             G.E_MANAGER:add_event(Event({
                 func = function()
                     ---@type string
@@ -161,8 +172,28 @@ local openingact = SMODS.Joker {
                     ---@type table
                     local suit_count = count_suits(suits)
 
+                    local any_selected = nil
+                    local _cards = {}
+                    for _, playing_card in ipairs(G.hand.cards) do
+                        _cards[#_cards + 1] = playing_card
+                    end
+                    ---@type number
+                    local cardAmount = GetCardAmount(G.GAME.hands[hand].example)
 
-                    if hand == "Pair" then
+                    for i = 1, cardAmount do
+                        if G.hand.cards[i] then
+                            local selected_card, card_index = pseudorandom_element(_cards, 'openingact')
+                            G.hand:add_to_highlighted(selected_card, true)
+                            table.remove(_cards, card_index)
+                            any_selected = true
+                            play_sound('card1', 1)
+                        end
+                    end
+
+                    if any_selected then G.FUNCS.discard_cards_from_highlighted(nil, true) end
+                    if hand == "High Card" then
+                        cards = { pseudorandom_element(G.playing_cards, 'openingact') }
+                    elseif hand == "Pair" then
                         local pairs = filter_min_count(rank_count, 2)
                         local pairrank = pseudorandom_element(keys(pairs), 'openingact')
                         cards = pick_random_cards_by_rank(G.playing_cards, pairrank, 2)
@@ -220,7 +251,6 @@ local openingact = SMODS.Joker {
                             end
                         end
                     elseif hand == "Flush" then
-                        local suit_count = count_suits(suits)
                         local flush_suits = filter_min_count(suit_count, 5)
 
                         if next(flush_suits) then
@@ -228,7 +258,6 @@ local openingact = SMODS.Joker {
                             cards = pick_random_cards_by_suit(G.playing_cards, suit, 5)
                         end
                     elseif hand == "Straight Flush" then
-                        local suit_count = count_suits(suits)
                         local flush_suits = filter_min_count(suit_count, 5)
 
                         if next(flush_suits) then
@@ -284,7 +313,6 @@ local openingact = SMODS.Joker {
                             end
                         end
                     elseif hand == "Flush House" then
-                        local suit_count = count_suits(suits)
                         local flush_suits = filter_min_count(suit_count, 5)
 
                         if next(flush_suits) then
@@ -325,7 +353,6 @@ local openingact = SMODS.Joker {
                             end
                         end
                     elseif hand == "Flush Five" then
-                        local suit_count = count_suits(suits)
                         local flush_suits = filter_min_count(suit_count, 5)
 
                         if next(flush_suits) then
@@ -353,6 +380,7 @@ local openingact = SMODS.Joker {
                     if cards == {} then
                         return true
                     end
+                    domessage = true
                     for _, card in ipairs(cards) do
                         G.hand:emplace(card)
                         card.states.visible = nil
@@ -361,6 +389,11 @@ local openingact = SMODS.Joker {
                     return true
                 end
             }))
+            if domessage then
+                return {
+                    message = "Rigged!"
+                }
+            end
         end
     end
 }
@@ -385,3 +418,50 @@ local deck = SMODS.Back {
         }))
     end
 }
+-- local openingact = SMODS.Joker {
+--     key = "openingact",
+--     cost = 5,
+--     rarity = 3,
+--     loc_txt = { name = 'Opening Act', text = { '{C:attention}Guaranteed{} to draw your', 'most played {C:attention} poker hand', 'on the {C:attention}first hand{} of round', '{C:inactive}(Currently {X:mult,C:white} #1# {C:inactive})' } },
+--     loc_vars = function(self)
+--         return { vars = { localize(G.GAME.current_round.most_played_poker_hand, 'poker_hands') } }
+--     end,
+--     calculate = function(self, card, context)
+--         if context.first_hand_drawn then
+--             G.E_MANAGER:add_event(Event({
+--                 func = function()
+--                     ---@type string
+--                     local hand = G.GAME.current_round.most_played_poker_hand
+--                     if hand == "High Card" then
+--                         return true
+--                     end
+
+--                     local any_selected = nil
+--                     local _cards = {}
+--                     for _, playing_card in ipairs(G.hand.cards) do
+--                         _cards[#_cards + 1] = playing_card
+--                     end
+--                     ---@type number
+--                     local cardAmount = GetCardAmount(G.GAME.hands[hand].example)
+
+--                     for i = 1, cardAmount do
+--                         if G.hand.cards[i] then
+--                             local selected_card, card_index = pseudorandom_element(_cards, 'openingact')
+--                             G.hand:add_to_highlighted(selected_card, true)
+--                             table.remove(_cards, card_index)
+--                             any_selected = true
+--                             play_sound('card1', 1)
+--                         end
+--                     end
+
+--                     if hand == "Pair" then
+--                         return
+--                     end
+
+--                     if any_selected then G.FUNCS.discard_cards_from_highlighted(nil, true) end
+--                     return true
+--                 end
+--             }))
+--         end
+--     end
+-- }

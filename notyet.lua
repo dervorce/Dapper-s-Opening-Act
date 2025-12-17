@@ -1,6 +1,6 @@
 -- A version that rigs the deck instead of discarding then drawing, but due to an issue in SMODS itself it doesnt work, when the smods update fixes this, this will be the main version
 -- but for now, ignore this, its time is not yet
-
+-- well you could if you got the dev version of smods from going to current smods page and downloading the main branch as zip from the green code button since that has the fix for this
 
 local function prandomifitwasgood(tbl, tag)
     local a, b = pseudorandom_element(tbl, tag)

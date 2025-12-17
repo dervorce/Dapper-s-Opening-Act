@@ -152,21 +152,109 @@ local function pick_random_cards_by_suit(deck, suit, count)
     return picked
 end
 
+local function is_all_same_suit(cards)
+    if not cards or #cards == 0 then return false end
+    local s = cards[1].base and cards[1].base.suit
+    for i = 2, #cards do
+        if not cards[i].base or cards[i].base.suit ~= s then return false end
+    end
+    return true
+end
+
+local function is_all_same_rank(cards)
+    if not cards or #cards == 0 then return false end
+    local r = cards[1].get_id and cards[1]:get_id() or (cards[1].base and cards[1].base.rank)
+    for i = 2, #cards do
+        local rr = cards[i].get_id and cards[i]:get_id() or (cards[i].base and cards[i].base.rank)
+        if rr ~= r then return false end
+    end
+    return true
+end
+
+local function is_straight_cards(cards)
+    local ranks = {}
+    for _, c in ipairs(cards) do
+        local r = c.get_id and c:get_id() or (c.base and c.base.rank)
+        ranks[#ranks + 1] = tonumber(r) or r
+    end
+    local uniq = {}
+    for _, v in ipairs(ranks) do uniq[v] = true end
+    local ulist = {}
+    for k, _ in pairs(uniq) do ulist[#ulist + 1] = k end
+    if #ulist ~= 5 then return false end
+    table.sort(ulist)
+    local minv = ulist[1]
+    if ulist[5] - ulist[1] == 4 then
+        for i = 2, 5 do if ulist[i] ~= minv + (i - 1) then return false end end
+        return true
+    end
+    local ace_low = { 2, 3, 4, 5, 14 }
+    table.sort(ace_low)
+    table.sort(ulist)
+    for i = 1, 5 do if ulist[i] ~= ace_low[i] then return false end end
+    return true
+end
+
+local function is_full_house_cards(cards)
+    local counts = {}
+    for _, c in ipairs(cards) do
+        local r = c.get_id and c:get_id() or (c.base and c.base.rank)
+        counts[tostring(r)] = (counts[tostring(r)] or 0) + 1
+    end
+    local has3, has2 = false, false
+    for _, v in pairs(counts) do
+        if v == 3 then
+            has3 = true
+        elseif v == 2 then
+            has2 = true
+        end
+    end
+    return has3 and has2
+end
+
+local function combinations_indices(n, k)
+    local out = {}
+    if k > n or k <= 0 then return out end
+    local idx = {}
+    for i = 1, k do idx[i] = i end
+    while true do
+        local combo = {}
+        for i = 1, k do combo[#combo + 1] = idx[i] end
+        out[#out + 1] = combo
+        local i = k
+        while i >= 1 do
+            idx[i] = idx[i] + 1
+            if idx[i] <= n - (k - i) then
+                for j = i + 1, k do
+                    idx[j] = idx[j - 1] + 1
+                end
+                break
+            end
+            i = i - 1
+        end
+        if i < 1 then break end
+    end
+    return out
+end
+
 ---@return string
 
 local function most_played_hand()
     local hands = G.GAME.hands
 
-    local mostPlayedHand = 'High Card'
+    local mostPlayedHandName = 'High Card'
+    local mostPlayedHandTimes = 0
     local maxPlayed = -math.huge
 
     for k, hand in pairs(G.GAME.hands) do
         if hand.played > maxPlayed then
             maxPlayed = hand.played
-            mostPlayedHand = k
+            mostPlayedHandName = k
+            mostPlayedHandTimes = hand.played
         end
     end
-    return mostPlayedHand
+    if mostPlayedHandTimes == 0 then mostPlayedHandName = 'High Card' end
+    return mostPlayedHandName
 end
 
 local openingact = SMODS.Joker {
@@ -182,7 +270,6 @@ local openingact = SMODS.Joker {
             ---@type string
 
             local hand = most_played_hand()
-
             ---@type table
 
             local cards = {}
@@ -303,15 +390,48 @@ local openingact = SMODS.Joker {
                 local straights = find_straight_sequences(numeric_unique)
 
                 if #straights > 0 then
-                    local straight_ranks = prandomifitwasgood(straights, 'openingact')
-
-                    for _, rank in ipairs(straight_ranks) do
-                        local picked = pick_random_cards_by_rank(G.deck.cards, rank, 1)
-                        if #picked == 0 then
-                            cards = {}
-                            break
+                    local valid_straights = {}
+                    for _, seq in ipairs(straights) do
+                        local pools = {}
+                        local ok_pool = true
+                        for _, rank in ipairs(seq) do
+                            local pool = {}
+                            for _, c in ipairs(G.deck.cards) do
+                                if (c.get_id and c:get_id() == rank) or (c.base and c.base.rank == rank) then
+                                    pool[#pool + 1] = c
+                                end
+                            end
+                            if #pool == 0 then
+                                ok_pool = false; break
+                            end
+                            pools[#pools + 1] = pool
                         end
-                        cards[#cards + 1] = picked[1]
+                        if not ok_pool then goto continue_seq_straight end
+
+                        for attempt = 1, 30 do
+                            local picked_set = {}
+                            local suits_seen = {}
+                            for _, pool in ipairs(pools) do
+                                local c, idx = prandomifitwasgood(pool, 'openingact')
+                                if not c then goto attempt_fail end
+                                picked_set[#picked_set + 1] = c
+                                suits_seen[c.base and c.base.suit] = (suits_seen[c.base and c.base.suit] or 0) + 1
+                            end
+                            local suit_count_seen = 0
+                            for _k, _v in pairs(suits_seen) do suit_count_seen = suit_count_seen + 1 end
+                            if suit_count_seen == 1 then
+                            else
+                                valid_straights[#valid_straights + 1] = picked_set
+                                break
+                            end
+                            ::attempt_fail::
+                        end
+
+                        ::continue_seq_straight::
+                    end
+
+                    if #valid_straights > 0 then
+                        cards = prandomifitwasgood(valid_straights, 'openingact')
                     end
                 end
             elseif hand == "Flush" then
@@ -319,9 +439,36 @@ local openingact = SMODS.Joker {
 
                 if next(flush_suits) then
                     local suit_keys = keys(flush_suits)
-                    local suit = nil
-                    if #suit_keys > 0 then suit = prandomifitwasgood(suit_keys, 'openingact') end
-                    cards = pick_random_cards_by_suit(G.deck.cards, suit, 5)
+                    local valid_flush_combos = {}
+
+                    for _, suit in ipairs(suit_keys) do
+                        local pool = {}
+                        for _, c in ipairs(G.deck.cards) do
+                            if c.base and tostring(c.base.suit) == tostring(suit) then
+                                pool[#pool + 1] = c
+                            end
+                        end
+                        if #pool < 5 then goto continue_suit_flush end
+
+                        local combs = combinations_indices(#pool, 5)
+                        for _, comb in ipairs(combs) do
+                            local combo = {}
+                            for i, idx in ipairs(comb) do combo[#combo + 1] = pool[idx] end
+                            if not is_all_same_rank(combo) and not is_full_house_cards(combo) and not is_straight_cards(combo) then
+                                valid_flush_combos[#valid_flush_combos + 1] = combo
+                            end
+                        end
+
+                        ::continue_suit_flush::
+                    end
+
+                    if #valid_flush_combos > 0 then
+                        cards = prandomifitwasgood(valid_flush_combos, 'openingact')
+                    else
+                        local suit = nil
+                        if #suit_keys > 0 then suit = prandomifitwasgood(suit_keys, 'openingact') end
+                        cards = pick_random_cards_by_suit(G.deck.cards, suit, 5)
+                    end
                 end
             elseif hand == "Straight Flush" then
                 local flush_suits = filter_min_count(suit_count, 5)
@@ -356,7 +503,6 @@ local openingact = SMODS.Joker {
                                 local ok = true
                                 for _, rank in ipairs(seq) do
                                     local rank_key = rank
-
                                     if rank == 1 and ranks_map[14] and not ranks_map[1] then
                                         rank_key = 14
                                     end
@@ -400,25 +546,60 @@ local openingact = SMODS.Joker {
                 local pairs = filter_min_count(rank_count, 2)
 
                 if next(trips) then
+                    local potential_fullhouses = {}
                     local trip_keys = keys(trips)
-                    local triprank = nil
-                    if #trip_keys > 0 then triprank = prandomifitwasgood(trip_keys, 'openingact') end
+                    local pair_keys = keys(pairs)
+                    for _, trip_rank in ipairs(trip_keys) do
+                        for _, pair_rank in ipairs(pair_keys) do
+                            if tostring(trip_rank) == tostring(pair_rank) then
+                            else
+                                local trip_pool = {}
+                                local pair_pool = {}
+                                for _, c in ipairs(G.deck.cards) do
+                                    if (c.get_id and c:get_id() == trip_rank) or (c.base and tostring(c.base.rank) == tostring(trip_rank)) then
+                                        trip_pool[#trip_pool + 1] = c
+                                    end
+                                    if (c.get_id and c:get_id() == pair_rank) or (c.base and tostring(c.base.rank) == tostring(pair_rank)) then
+                                        pair_pool[#pair_pool + 1] = c
+                                    end
+                                end
+                                if #trip_pool >= 3 and #pair_pool >= 2 then
+                                    local trip_combs = combinations_indices(#trip_pool, 3)
+                                    local pair_combs = combinations_indices(#pair_pool, 2)
+                                    for _, tc in ipairs(trip_combs) do
+                                        for _, pc in ipairs(pair_combs) do
+                                            local chosen = {}
+                                            for _, idx in ipairs(tc) do chosen[#chosen + 1] = trip_pool[idx] end
+                                            for _, idx in ipairs(pc) do chosen[#chosen + 1] = pair_pool[idx] end
+                                            if not is_all_same_suit(chosen) then
+                                                potential_fullhouses[#potential_fullhouses + 1] = chosen
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
 
-                    pairs[triprank] = nil
-
-                    if next(pairs) then
-                        local pair_keys = keys(pairs)
-                        local pairrank = nil
-                        if #pair_keys > 0 then pairrank = prandomifitwasgood(pair_keys, 'openingact') end
-
-                        local trip_cards = pick_random_cards_by_rank(G.deck.cards, triprank, 3)
-                        local pair_cards = pick_random_cards_by_rank(G.deck.cards, pairrank, 2)
-
-                        if #trip_cards == 3 and #pair_cards == 2 then
-                            for _, c in ipairs(trip_cards) do cards[#cards + 1] = c end
-                            for _, c in ipairs(pair_cards) do cards[#cards + 1] = c end
-                        else
-                            cards = {}
+                    if #potential_fullhouses > 0 then
+                        cards = prandomifitwasgood(potential_fullhouses, 'openingact')
+                    else
+                        local triprank = nil
+                        local trip_keys = keys(trips)
+                        if #trip_keys > 0 then triprank = prandomifitwasgood(trip_keys, 'openingact') end
+                        pairs[triprank] = nil
+                        if next(pairs) then
+                            local pair_keys = keys(pairs)
+                            local pairrank = nil
+                            if #pair_keys > 0 then pairrank = prandomifitwasgood(pair_keys, 'openingact') end
+                            local trip_cards = pick_random_cards_by_rank(G.deck.cards, triprank, 3)
+                            local pair_cards = pick_random_cards_by_rank(G.deck.cards, pairrank, 2)
+                            if #trip_cards == 3 and #pair_cards == 2 then
+                                for _, c in ipairs(trip_cards) do cards[#cards + 1] = c end
+                                for _, c in ipairs(pair_cards) do cards[#cards + 1] = c end
+                            else
+                                cards = {}
+                            end
                         end
                     end
                 end
@@ -455,52 +636,25 @@ local openingact = SMODS.Joker {
                     for _, trip_rank in ipairs(trip_ranks) do
                         for _, pair_rank in ipairs(pair_ranks) do
                             if tostring(trip_rank) == tostring(pair_rank) then
-
                             else
                                 local trip_pool = {}
                                 for _, c in ipairs(ranks_map[trip_rank]) do trip_pool[#trip_pool + 1] = c end
                                 local pair_pool = {}
                                 for _, c in ipairs(ranks_map[pair_rank]) do pair_pool[#pair_pool + 1] = c end
 
-                                local ok = true
-                                local chosen_trip = {}
-
-                                for i = 1, 3 do
-                                    if #trip_pool == 0 then
-                                        ok = false; break
+                                local trip_combs = combinations_indices(#trip_pool, 3)
+                                local pair_combs = combinations_indices(#pair_pool, 2)
+                                for _, tc in ipairs(trip_combs) do
+                                    for _, pc in ipairs(pair_combs) do
+                                        local chosen = {}
+                                        for _, idx in ipairs(tc) do chosen[#chosen + 1] = trip_pool[idx] end
+                                        for _, idx in ipairs(pc) do chosen[#chosen + 1] = pair_pool[idx] end
+                                        if is_all_same_suit(chosen) then
+                                            potential_fh[#potential_fh + 1] = chosen
+                                        end
                                     end
-                                    local picked, idx = prandomifitwasgood(trip_pool, 'openingact')
-                                    if not picked or not idx then
-                                        ok = false; break
-                                    end
-                                    chosen_trip[#chosen_trip + 1] = picked
-                                    table.remove(trip_pool, idx)
-                                end
-
-                                if not ok then goto continue_pair end
-
-                                local chosen_pair = {}
-
-                                for i = 1, 2 do
-                                    if #pair_pool == 0 then
-                                        ok = false; break
-                                    end
-                                    local picked, idx = prandomifitwasgood(pair_pool, 'openingact')
-                                    if not picked or not idx then
-                                        ok = false; break
-                                    end
-                                    chosen_pair[#chosen_pair + 1] = picked
-                                    table.remove(pair_pool, idx)
-                                end
-
-                                if ok and #chosen_trip == 3 and #chosen_pair == 2 then
-                                    potential_fh[#potential_fh + 1] = {
-                                        chosen_trip[1], chosen_trip[2], chosen_trip[3],
-                                        chosen_pair[1], chosen_pair[2]
-                                    }
                                 end
                             end
-                            ::continue_pair::
                         end
                     end
 
@@ -534,8 +688,8 @@ local openingact = SMODS.Joker {
                         if #cards_of_rank >= 5 then
                             local five_cards = {}
                             for i = 1, 5 do
-                                five_cards[i], idx = prandomifitwasgood(cards_of_rank, 'openingact')
-
+                                local picked, idx = prandomifitwasgood(cards_of_rank, 'openingact')
+                                five_cards[i] = picked
                                 table.remove(cards_of_rank, idx)
                             end
                             potential_f5[#potential_f5 + 1] = five_cards
@@ -547,6 +701,7 @@ local openingact = SMODS.Joker {
                     cards = prandomifitwasgood(potential_f5, 'openingact')
                 end
             end
+
             if next(cards) == nil then
                 return
             end
@@ -573,42 +728,10 @@ local openingact = SMODS.Joker {
             for _, card in ipairs(cards) do
                 draw_card(G.deck, G.hand, 90, 'up', false, card)
             end
+
             return {
                 message = "Rigged!"
             }
         end
     end
-}
-
-local deck = SMODS.Back {
-    loc_txt = {
-        name = 'Test Deck',
-        text = {
-            "Start run with",
-            "{C:attention}Hieroglyph{} and {C:attention}Petroglyph"
-        }
-    },
-    key = "TestDick89",
-    atlas = 'Joker',
-    prefix_config = { atlas = false },
-    pos = G.P_CENTERS.j_ancient.pos,
-    apply = function(self, back)
-        G.E_MANAGER:add_event(Event({
-            func = function()
-                SMODS.add_card({ key = 'j_Dapper_openingact', edition = 'e_negative', stickers = { 'eternal' }, force_stickers = true })
-                SMODS.add_card({ key = 'j_four_fingers', edition = 'e_negative', stickers = { 'eternal' }, force_stickers = true })
-                SMODS.add_card({ key = 'j_shortcut', edition = 'e_negative', stickers = { 'eternal' }, force_stickers = true })
-                for i = 1, 20 do
-                    v = G.playing_cards[i]
-                    v:change_suit('Hearts')
-                    if i <= 15 then
-                        assert(SMODS.modify_rank(v, 14 - v:get_id()))
-                    else
-                        assert(SMODS.modify_rank(v, 13 - v:get_id()))
-                    end
-                end
-                return true
-            end
-        }))
-    end,
 }
